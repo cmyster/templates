@@ -1,0 +1,395 @@
+heat_template_version: 2013-05-23
+
+description: >                                                                 
+  Full system including networks and servers for testing a full scale env.
+
+#====================
+#===  PARAMETERS  ===
+#====================
+
+parameters:
+
+#=== KEYPAIR ===
+
+  key_name:
+    type: string
+    default: keypair_via_heat
+
+  key_save:
+    type: string
+    default: false
+
+#=== PUBLIC NETWORK ===
+
+  public_net_name:
+    type: string
+    description: name of private network to be created
+    default: public_network
+
+  public_net_external:
+    type: string
+    description: should the network be external
+    default: true
+
+  public_net_cidr:
+    type: string
+    description: network address (CIDR notation)
+    default: 172.25.5.1/28
+
+  public_subnet_name:
+    type: string
+    description: name for the subnet
+    default: public_subnet
+
+  public_net_gateway:
+    type: string
+    description: network gateway address
+    default: 172.25.5.1
+
+  public_net_pool_start:
+    type: string
+    description: start of network IP address allocation pool
+    default: 172.25.5.2
+
+  public_net_pool_end:
+    type: string
+    description: end of network IP address allocation pool
+    default: 172.25.5.14
+
+#=== PRIVATE NETWORK ===
+
+  private_net_name:
+    type: string
+    description: name of private network to be created
+    default: private_network
+
+  private_net_external:
+    type: string
+    description: should the network be external
+    default: false
+
+  private_net_cidr:
+    type: string
+    description: network address (CIDR notation)
+    default: 10.1.10.1/24
+
+  private_subnet_name:
+    type: string
+    description: name for the subnet
+    default: private_subnet
+
+  private_net_gateway:
+    type: string
+    description: network gateway address
+    default: 10.1.10.1
+
+  private_net_pool_start:
+    type: string
+    description: start of network IP address allocation pool
+    default: 10.1.10.10
+
+  private_net_pool_end:
+    type: string
+    description: end of network IP address allocation pool
+    default: 10.1.10.250
+
+#=== ROUTER ===
+
+  router_up:
+    type: string
+    description: true means that the router state is up
+    default: true
+
+#=== FLAVOR ===
+
+  flavor:
+    type: string
+    default: m1.small
+
+#===================
+#===  RESOURCES  ===
+#===================
+
+resources:
+
+#=== KEYPAIR ===
+  keypair:
+    type: OS::Nova::KeyPair
+    properties:
+      name: {get_param: key_name}
+      save_private_key: {get_param: key_save}
+
+#=== PUBLIC NETWORK ===
+
+  public_network:
+    type: OS::Neutron::Net
+    properties:
+      name: {get_param: public_net_name}
+      shared: {get_param: public_net_external}
+      value_specs: {
+        "router:external":"true",
+        "provider:network_type":"vlan",
+        "provider:physical_network":"physnet1",
+        "provider:segmentation_id":"123",}
+
+  public_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: {get_param: public_subnet_name}
+      network_id: {get_resource: public_network}
+      ip_version: 4
+      cidr: {get_param: public_net_cidr}
+      gateway_ip: {get_param: public_net_gateway}
+      allocation_pools:
+        - start: {get_param: public_net_pool_start}
+          end: {get_param: public_net_pool_end}
+
+#=== PRIVATE NETWORK ===
+
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name: {get_param: private_net_name}
+      shared: {get_param: private_net_external}
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: {get_param: private_subnet_name}
+      network_id: {get_resource: private_network}
+      ip_version: 4
+      cidr: {get_param: private_net_cidr}
+      gateway_ip: {get_param: private_net_gateway}
+      allocation_pools:
+        - start: {get_param: private_net_pool_start}
+          end: {get_param: private_net_pool_end}
+
+#=== ROUTER ===
+
+  router:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: {get_param: router_up}
+      external_gateway_info:
+        network: {get_resource: public_network}
+
+  router_gateway:
+    type: OS::Neutron::RouterGateway
+    properties:
+      router_id: {get_resource: router}
+      network_id: {get_resource: public_network}
+
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: {get_resource: router}
+      subnet_id: {get_resource: private_subnet}
+
+#=== SECURITY GROUP ===
+
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Opens up ICMP, SSH, HTTP and the default MySQL ports.
+      name: test-security-group_001
+      rules: [
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: tcp,
+         port_range_min: 3306,
+         port_range_max: 3306},
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: tcp,
+         port_range_min: 22,
+         port_range_max: 22},
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: tcp,
+         port_range_min: 80,
+         port_range_max: 80},
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: icmp},
+        {direction: egress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0}]
+
+#=== LOAD BALANCER ===
+
+  monitor:
+    type: OS::Neutron::HealthMonitor
+    properties:
+      type: TCP
+      delay: 5
+      max_retries: 5
+      timeout: 5
+
+  pool:
+    type: OS::Neutron::Pool
+    properties:
+      protocol: HTTP
+      monitors: [{get_resource: monitor}]
+      subnet_id: {get_resource: private_subnet}
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 80
+  lb:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      protocol_port: 80
+      pool_id: {get_resource: pool}
+
+#=== GLANCE IMAGE ===
+
+  f20_glance_image:
+    type: OS::Glance::Image
+    properties:
+      container_format: bare
+      disk_format: qcow2
+      is_public: true
+      location: http://dl.fedoraproject.org/pub/alt/openstack/20/x86_64/Fedora-x86_64-20-20140618-sda.qcow2
+      min_disk: 8
+      min_ram: 1024
+      name: fedora20_via_heat
+      protected: false
+
+#=== NOVA IMAGE ===
+
+  wp_server_group:
+    type: OS::Heat::AutoScalingGroup
+    properties:
+      min_size: 2
+      max_size: 7
+      resource:
+        type: lb_server.yaml
+        properties:
+          flavor: {get_param: flavor}
+          image: {get_resource: f20_glance_image}
+          key_name: {get_resource: keypair}
+          pool_id: {get_resource: pool}
+          public_network: {get_resource: public_network}
+          private_network: {get_resource: private_network}
+          private_subnet: {get_resource: private_subnet}
+          security_group: {get_resource: security_group}
+          metadata: {"metering.stack": {get_param: "OS::stack_id"}}
+          user_data:
+            #!/bin/bash -v
+            yum -y install httpd wordpress
+            systemctl enable httpd.service
+            systemctl start httpd.service
+            setsebool -P httpd_can_network_connect_db=1
+            systemctl restart httpd.service
+
+#=== SCALE POLICIES ===
+
+  server_scaleup_policy:
+    type: OS::Heat::ScalingPolicy
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id: {get_resource: wp_server_group}
+      cooldown: 60
+      scaling_adjustment: 1
+
+  server_scaledown_policy:
+    type: OS::Heat::ScalingPolicy
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id: {get_resource: wp_server_group}
+      cooldown: 60
+      scaling_adjustment: -1
+
+#=== CEILOMETER ALARMS ===
+
+  cpu_alarm_high:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-up if the average CPU > 50% for 180 seconds
+      meter_name: cpu_util
+      statistic: avg
+      period: 180
+      evaluation_periods: 1
+      threshold: 50
+      alarm_actions:
+        - {get_attr: [server_scaleup_policy, alarm_url]}
+      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      comparison_operator: gt
+
+  cpu_alarm_low:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-down if the average CPU < 10% for 180 seconds
+      meter_name: cpu_util
+      statistic: avg
+      period: 180
+      evaluation_periods: 1
+      threshold: 10
+      alarm_actions:
+        - {get_attr: [server_scaledown_policy, alarm_url]}
+      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      comparison_operator: lt
+
+#===============
+#=== OUTPUTS ===
+#===============
+
+outputs:
+
+  public_network_id:
+    description: The ID of the public network in use.
+    value: {get_attr: [public_subnet, network_id]}
+
+  public_subnets:
+    description: List of the subnets in the public network.
+    value: {get_attr: [public_network, subnets]}
+
+  private_network_id:
+    description: The ID of the private network in use.
+    value: {get_attr: [private_subnet, network_id]}
+
+  private_subnets:
+    description: List of the subnets in the private network.
+    value: {get_attr: [private_network, subnets]}
+
+  scale_up_url:
+    description: >
+      This URL is the webhook to scale up the autoscaling group. You can
+      invoke the scale-up operation by doing an HTTP POST to this URL.
+      No body nor extra headers are needed but you need to be authorized.
+    value: {get_attr: [server_scaleup_policy, alarm_url]}
+
+  scale_dn_url:
+    description: >
+      This URL is the webhook to scale down the autoscaling group. You can
+      invoke the scale-down operation by doing an HTTP POST to this URL.
+      No body nor extra headers are needed but you need to be authorized.
+    value: {get_attr: [server_scaledown_policy, alarm_url]}
+
+  pool_ip_address:
+    description: The IP address of the load balancing pool
+    value: {get_attr: [pool, vip, address]}
+
+  ceilometer_query:
+    description: >
+      This is a Ceilometer query for statistics on the cpu_util meter
+      Samples about OS::Nova::Server instances in this stack.  The -q
+      parameter selects Samples according to the subject's metadata.
+      When a VM's metadata includes an item of the form metering.X=Y,
+      the corresponding Ceilometer resource has a metadata item of the
+      form user_metadata.X=Y and samples about resources so tagged can
+      be queried with a Ceilometer query term of the form
+      metadata.user_metadata.X=Y.  In this case the nested stacks give
+      their VMs metadata that is passed as a nested stack parameter,
+      and this stack passes a metadata of the form metering.stack=Y,
+      where Y is this stack's ID.
+    value:
+      str_replace:
+        template: >
+          ceilometer statistics -m cpu_util
+          -q metadata.user_metadata.stack=stackval -p 10 -a avg
+        params:
+          stackval: { get_param: "OS::stack_id" }
