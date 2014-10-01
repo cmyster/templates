@@ -1,0 +1,22 @@
+heat_template_version: 2013-05-23
+
+parameters:
+  key_name:
+    type: string
+    default: heat_key_test
+  key_save:
+    type: string
+    default: false
+
+resources:
+  KeyPair:
+    type: OS::Nova::KeyPair
+    properties:
+      name: { get_param: key_name }
+      save_private_key: { get_param: key_save }
+
+outputs:
+  PublicKey:
+    value: { get_attr: [KeyPair, public_key] }
+  PrivateKey:
+    value: { get_attr: [KeyPair, private_key] }
