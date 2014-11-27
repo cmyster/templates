@@ -1,0 +1,58 @@
+heat_template_version: 2013-05-23
+description: Load balanced Nova Server
+
+parameters:
+  image:
+    type: string
+  key_name:
+    type: string
+  flavor:
+    type: string
+  pool_id:
+    type: string
+  private_network:
+    type: string
+  private_subnet:
+    type: string
+  security_group:
+    type: string
+  availability_zone:
+    type: string
+    default: nova
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      availability_zone: { get_param: availability_zone }
+      flavor: { get_param: flavor }
+      image: { get_param: image }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: server_port }
+    depends_on: server_port
+
+  server_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_network }
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet }
+      security_groups: [ { get_param: security_group } ]
+
+  lb_member:
+    type: OS::Neutron::PoolMember
+    properties:
+      pool_id: { get_param: pool_id }
+      address: { get_attr: [server, first_address] }
+      protocol_port: 80
+
+  volume:
+    type: nested_volume.yaml
+    properties:
+      nova_instance: {get_resource: server}
+      availability_zone: { get_param: availability_zone }
+
+outputs:
+  instance_ip:
+    value: { get_attr: [server, first_address] }

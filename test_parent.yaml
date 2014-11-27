@@ -1,0 +1,76 @@
+heat_template_version: 2013-05-23
+
+description: >
+  Parent template for a simple environment. Heavy lifting is in nested stacks.
+
+parameters:
+
+  flavor:
+    type: string
+    default: m1.nano
+
+resources:
+
+  keypair:
+    type: OS::Nova::KeyPair
+    properties:
+      name: keypair_heat
+      save_private_key: false
+
+  network:
+    type: nested_network.yaml
+
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: test-security-group_heat
+      rules: [
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: tcp,
+         port_range_min: 22,
+         port_range_max: 22},
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: tcp,
+         port_range_min: 80,
+         port_range_max: 80},
+        {direction: ingress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0,
+         protocol: icmp},
+        {direction: egress,
+         ethertype: IPv4,
+         remote_ip_prefix: 0.0.0.0/0}]
+
+  load_balancer:
+    type: nested_lb.yaml
+    properties:
+      private_subnet: {get_attr: [network, private_subnet_id]}
+    depends_on: network
+
+  glance_image:
+    type: OS::Glance::Image
+    properties:
+      container_format: bare
+      disk_format: qcow2
+      is_public: true
+      location: http://download.cirros-cloud.net/0.3.3/cirros-0.3.3-x86_64-disk.img
+      min_disk: 1
+      min_ram: 64
+      name: cirros_heat
+      protected: false
+
+  server:
+    type: nested_server.yaml
+    properties:
+      flavor: {get_param: flavor}
+      image: {get_resource: glance_image}
+      key_name: {get_resource: keypair}
+      pool_id: {get_attr: [load_balancer, pool_id]}
+      private_network: {get_attr: [network, private_network_id]}
+      private_subnet: {get_attr: [network, private_subnet_id]}
+      security_group: {get_resource: security_group}
+    depends_on: load_balancer

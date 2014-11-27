@@ -1,0 +1,24 @@
+heat_template_version: 2013-05-23
+
+description: >
+  Provider template for creating a cinder volume and an attachment for it.
+
+parameters:
+  availability_zone:
+    type: string
+  nova_instance:
+    type: string
+
+resources:
+  cinder_volume:
+    type: OS::Cinder::Volume
+    properties:
+      size: 1
+      availability_zone: { get_param: availability_zone }
+      name: volume_heat
+  volume_attachment:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: cinder_volume }
+      instance_uuid: { get_param: nova_instance }
+      mountpoint: /dev/vdc

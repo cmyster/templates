@@ -1,0 +1,26 @@
+heat_template_version: 2013-05-23
+description: >
+  Network provider template
+
+resources:
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name: private_net_heat
+      shared: false
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: private_subnet_heat
+      network: {get_resource: private_network}
+      ip_version: 4
+      cidr: 10.1.10.1/24
+      gateway_ip: 10.1.10.1
+      allocation_pools: [{"start": 10.1.10.10, "end":10.1.10.200}]
+
+outputs:
+  private_network_id:
+    value: {get_resource: private_network}
+  private_subnet_id:
+    value: {get_resource: private_subnet}
