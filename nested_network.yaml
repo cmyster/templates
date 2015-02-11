@@ -21,6 +21,8 @@ resources:
 
 outputs:
   private_network_id:
+    description: Private network ID
     value: {get_resource: private_network}
   private_subnet_id:
+    description: Private subnet ID
     value: {get_resource: private_subnet}

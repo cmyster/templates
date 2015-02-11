@@ -24,6 +24,7 @@ resources:
       lb_method: ROUND_ROBIN
       vip:
         protocol_port: 80
+
   lb:
     type: OS::Neutron::LoadBalancer
     properties:
@@ -32,4 +33,5 @@ resources:
 
 outputs:
   pool_id:
+    description: LoadBalancer Pool ID
     value: {get_resource: pool}

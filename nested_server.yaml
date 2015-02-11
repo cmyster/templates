@@ -14,11 +14,12 @@ parameters:
     type: string
   private_subnet:
     type: string
-  security_group:
-    type: string
   availability_zone:
     type: string
     default: nova
+  flavor:
+    type: string
+    default: m1.tiny
 
 resources:
   server:
@@ -38,7 +39,6 @@ resources:
       network_id: { get_param: private_network }
       fixed_ips:
         - subnet_id: { get_param: private_subnet }
-      security_groups: [ { get_param: security_group } ]
 
   lb_member:
     type: OS::Neutron::PoolMember
@@ -48,7 +48,7 @@ resources:
       protocol_port: 80
 
   volume:
-    type: nested_volume.yaml
+    type: Test::Volume
     properties:
       nova_instance: {get_resource: server}
       availability_zone: { get_param: availability_zone }

@@ -1,7 +1,6 @@
 heat_template_version: 2013-05-23
 
-description: >
-  Provider template for creating a cinder volume and an attachment for it.
+description: Cinder volume provider template
 
 parameters:
   availability_zone:

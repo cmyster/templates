@@ -1,0 +1,22 @@
+heat_template_version: 2013-05-23
+
+description: Glance image provider image
+
+parameters:
+  image_name:
+    type: string
+
+resources:
+
+  glance_image:
+    type: OS::Glance::Image
+    properties:
+      container_format: bare
+      disk_format: qcow2
+      is_public: true
+      location: http://download.cirros-cloud.net/0.3.3/cirros-0.3.3-x86_64-disk.img
+      min_disk: 1
+      min_ram: 64
+      name: {get_param: image_name}
+      protected: false
+
