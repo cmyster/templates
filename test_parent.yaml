@@ -23,23 +23,20 @@ resources:
   network:
     type: Test::Network
 
-  load_balancer:
-    type: Test::LoadBalancer
-    properties:
-      private_subnet: {get_attr: [network, private_subnet_id]}
-    depends_on: network
-
   glance_image:
     type: Test::GlanceImage
     properties:
       image_name: {get_param: image_name}
+
+  flavor:
+    type: Test::NovaFlavor
 
   server:
     type: Test::Server
     properties:
       image: {get_param: image_name}
       key_name: {get_param: keypair_name}
-      pool_id: {get_attr: [load_balancer, pool_id]}
       private_network: {get_attr: [network, private_network_id]}
       private_subnet: {get_attr: [network, private_subnet_id]}
-    depends_on: [load_balancer, glance_image, keypair]
+    depends_on: [network, glance_image, keypair, flavor]
+
