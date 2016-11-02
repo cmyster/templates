@@ -1,0 +1,13 @@
+heat_template_version: 2016-04-08
+
+description: Nova flavor provider template
+
+resources:
+
+  flavor:
+    type: OS::Nova::Flavor
+    properties:
+      disk: 1
+      ram: 256
+      vcpus: 1
+      name: heat.tiny
