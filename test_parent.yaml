@@ -36,6 +36,7 @@ resources:
     properties:
       image: {get_param: image_name}
       key_name: {get_param: keypair_name}
+      flavor: {get_attr: [flavor, flavor_id]}
       private_network: {get_attr: [network, private_network_id]}
       private_subnet: {get_attr: [network, private_subnet_id]}
     depends_on: [network, glance_image, keypair, flavor]

@@ -1,4 +1,4 @@
-heat_template_version: 2016-04-08
+heat_template_version: 2015-10-15
 description: Load balanced Nova Server
 
 parameters:
@@ -15,9 +15,6 @@ parameters:
   availability_zone:
     type: string
     default: nova
-  flavor:
-    type: string
-    default: heat.tiny
 
 resources:
   server:

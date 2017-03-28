@@ -1,4 +1,4 @@
-heat_template_version: 2016-04-08
+heat_template_version: 2015-10-15
 
 description: Nova flavor provider template
 
@@ -10,4 +10,8 @@ resources:
       disk: 1
       ram: 256
       vcpus: 1
-      name: heat.tiny
+
+outputs:
+  flavor_id:
+    description: Nova flavor ID
+    value: {get_resource: flavor}
